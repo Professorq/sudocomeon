@@ -151,29 +151,81 @@ class Grid:
               return False
       return True          
 
-  def check_sudoku(self, grid):
-      rows = self.testRows(grid)
-      if rows is None:
-          return None
-      elif rows is False:
-          return False
-      else:
-          return self.testCols(grid) and self.testSubGrids(grid)
+  def check_sudoku(self, grid = None):
+    if grid is None:
+      grid = self.grid
+    rows = self.testRows(grid)
+    if rows is None:
+        return None
+    elif rows is False:
+        return False
+    else:
+        return self.testCols(grid) and self.testSubGrids(grid) and rows
 
-  def check_sudoku_solved(self, grid):
-      rows = self.testSolvedRows(grid)
-      if rows is None:
-          return None
-      elif rows is False:
-          return False
-      else:
-          return self.testSolvedCols(grid) and self.testSolvedSubGrids(grid)
+  def check_sudoku_solved(self, grid = None):
+    if grid is None:
+      grid = self.grid
+    rows = self.testSolvedRows(grid)
+    if rows is None:
+        return None
+    elif rows is False:
+        return False
+    else:
+        return self.testSolvedCols(grid) and self.testSolvedSubGrids(grid)
+        
+  def count_zeros(self, grid = None):
+    if grid is None:
+      grid = self.grid
+    return sum([len(self.df[x]) for x in self.df.keys()])
+  
+  def altsolve(self,grid = None):
+    success = None
+    if grid is None:
+      grid = self.grid
+    if self.count_zeros(grid) == 0 and self.check_sudoku_solved(grid):
+        print('Solved!')
+        success = grid
+        for r in grid:
+          print(r)
+        return grid
+    try:
+      key = min(self.df)
+      coord = self.df[key].pop()
+      if len(self.df[key]) == 0:
+        del self.df[key]
+    except KeyError as err:
+      print(err)
+      print('key = min(self.df) was not a viable key in df')
+      return False
+    except IndexError as err:
+      print(err)
+      print('tried to pop() too many coordinates from the df[{0}] list'.format(key))
+      return False
+    possible_values_at_coord = self.candidate_list(coord)
+    print("Coordinates: {0}".format(coord))
+    solved = False
+    while not solved:
+      try:
+        value = possible_values_at_coord.pop()
+      except IndexError as err:
+        print("All candidates failed for coord {0}".format(coord))
+        print(err)
+        return False
+      print("try value {0}".format(value))
+      attempt = self.insert_value_at(value, coord)
+      if attempt and attempt.check_sudoku():
+        if attempt.check_sudoku_solved():
+          self = attempt
+          return attempt
+        else:
+          assert not 0 in attempt.df
+          solved = attempt.altsolve()
+          if solved and solved.check_sudoku_solved():
+            return solved.grid
 
   def solve(self, grid = None):
     if grid is None:
       grid = self.grid
-    self.build_fill_map()
-    self.build_df_map()
     if self.count_zeros(grid) == 0 and self.check_sudoku_solved(grid):
         print('Solved!')
         for r in grid:
@@ -188,33 +240,22 @@ class Grid:
         else:
           pass
     return False
-      
-    
-    # iterate through sets - place answers
-    # find mutually acceptable answers
-      # check entire grid
-        # roll back if false (recursive??)
-        # update degrees of freedom sets solve again
-      # mark paths travelled/failed
-    #
-  def count_zeros(self, grid = None):
-    if grid is None:
-      grid = self.grid
-    return sum([len(self.df[x]) for x in self.df.keys()])
     
   def insert_value_at(self, value, coord):
     x,y = coord
     if self.grid[y][x] == 0:
       attempt = Grid(self.grid)
       try:
-        # if value in attempt.row_fill[y] or value in attempt.col_fill[x] or value in attempt.subgrid_fill[int(y/3)][int(x/3)]:
-        #  return False
-        # else:
-        attempt.row_fill[y][value] = coord
-        attempt.col_fill[x][value] = coord
-        attempt.subgrid_fill[int(y/3)][int(x/3)][value] = coord
-        attempt.grid[y][x] = value
-        attempt.build_df_map()
+        if value in attempt.row_fill[y] or value in attempt.col_fill[x] or value in attempt.subgrid_fill[int(y/3)][int(x/3)]:
+          return False
+        else:
+          attempt.row_fill[y][value] = coord
+          attempt.col_fill[x][value] = coord
+          attempt.subgrid_fill[int(y/3)][int(x/3)][value] = coord
+          attempt.grid[y][x] = value
+          attempt.build_df_map()
+        if 0 in attempt.df:
+          return False
       except TypeError as err:
         print(err)
         return None
